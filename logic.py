@@ -92,7 +92,10 @@ class DatabaseManager:
         with conn:
             cur = conn.cursor()
             cur.execute("SELECT * FROM prizes WHERE used = 0 ORDER BY RANDOM() LIMIT 1")
-            return cur.fetchall()[0]
+            result = cur.fetchall()
+            if len(result) == 0:
+                return None
+            return result[0]
 
     def get_winners_count(self, prize_id):
         conn = sqlite3.connect(self.database)
@@ -115,6 +118,17 @@ class DatabaseManager:
             ''')
             return cur.fetchall()
 
+    def get_user_images(self, user_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute('''
+            SELECT p.image FROM prizes p
+            JOIN winners w ON p.prize_id = w.prize_id
+            WHERE w.user_id = ?
+            ''', (user_id,))
+            return [row[0] for row in cur.fetchall()]
+
 def hide_img(img_name):
     image = cv2.imread(f'img/{img_name}')
     blurred_image = cv2.GaussianBlur(image, (15, 15), 0)
@@ -122,9 +136,8 @@ def hide_img(img_name):
     pixelated_image = cv2.resize(pixelated_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
     cv2.imwrite(f'hidden_img/{img_name}', pixelated_image)
 
-if __name__ == '__main__':
+def initialize_prizes():
     manager = DatabaseManager(DATABASE)
-    manager.create_tables()
     prizes_img = os.listdir('img')
     data = [(x,) for x in prizes_img]
     manager.add_prize(data)
